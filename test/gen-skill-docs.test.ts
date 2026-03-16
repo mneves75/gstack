@@ -129,6 +129,18 @@ describe('gen-skill-docs', () => {
     expect(browseTmpl).toContain('{{COMMAND_REFERENCE}}');
     expect(browseTmpl).toContain('{{SNAPSHOT_FLAGS}}');
   });
+
+  test('generated browse setup block includes Codex install paths', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
+    expect(content).toContain('.codex/skills/gstack/browse/dist/browse');
+    expect(content).toContain('.agents/skills/gstack/browse/dist/browse');
+  });
+
+  test('generated update check block includes Codex install paths', () => {
+    const content = fs.readFileSync(path.join(ROOT, 'SKILL.md'), 'utf-8');
+    expect(content).toContain('.codex/skills/gstack/bin/gstack-update-check');
+    expect(content).toContain('.agents/skills/gstack/bin/gstack-update-check');
+  });
 });
 
 /**

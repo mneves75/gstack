@@ -1,7 +1,7 @@
 {
   "name": "gstack",
   "version": "0.3.3",
-  "description": "Garry's Stack — Claude Code skills + fast headless browser. One repo, one install, entire AI engineering workflow.",
+  "description": "Garry's Stack — agent workflows + fast headless browser for Claude Code and Codex from one shared repo.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -15,6 +15,7 @@
     "test": "bun test browse/test/ test/ --ignore test/skill-e2e.test.ts --ignore test/skill-llm-eval.test.ts",
     "test:evals": "EVALS=1 bun test test/skill-llm-eval.test.ts test/skill-e2e.test.ts",
     "test:e2e": "EVALS=1 bun test test/skill-e2e.test.ts",
+    "test:codex-e2e": "CODEX_EVALS=1 bun test test/codex-e2e.test.ts",
     "skill:check": "bun run scripts/skill-check.ts",
     "dev:skill": "bun run scripts/dev-skill.ts",
     "start": "bun run browse/src/server.ts",
@@ -37,6 +38,7 @@
     "headless",
     "cli",
     "claude",
+    "codex",
     "ai-agent",
     "devtools"
   ],
