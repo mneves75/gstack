@@ -25,7 +25,12 @@ First, check if auto-upgrade is enabled:
 ```bash
 _AUTO=""
 [ "${GSTACK_AUTO_UPGRADE:-}" = "1" ] && _AUTO="true"
-[ -z "$_AUTO" ] && _AUTO=$(~/.claude/skills/gstack/bin/gstack-config get auto_upgrade 2>/dev/null || true)
+[ -z "$_AUTO" ] && _AUTO=$(
+  "$HOME/.codex/skills/gstack/bin/gstack-config" get auto_upgrade 2>/dev/null || \
+  "$HOME/.agents/skills/gstack/bin/gstack-config" get auto_upgrade 2>/dev/null || \
+  "$HOME/.claude/skills/gstack/bin/gstack-config" get auto_upgrade 2>/dev/null || \
+  true
+)
 echo "AUTO_UPGRADE=$_AUTO"
 ```
 
@@ -39,7 +44,7 @@ echo "AUTO_UPGRADE=$_AUTO"
 
 **If "Always keep me up to date":**
 ```bash
-~/.claude/skills/gstack/bin/gstack-config set auto_upgrade true
+"$INSTALL_DIR/bin/gstack-config" set auto_upgrade true
 ```
 Tell user: "Auto-upgrade enabled. Future updates will install automatically." Then proceed to Step 2.
 
@@ -65,30 +70,35 @@ Tell user the snooze duration: "Next reminder in 24h" (or 48h or 1 week, dependi
 
 **If "Never ask again":**
 ```bash
-~/.claude/skills/gstack/bin/gstack-config set update_check false
+"$INSTALL_DIR/bin/gstack-config" set update_check false
 ```
-Tell user: "Update checks disabled. Run `~/.claude/skills/gstack/bin/gstack-config set update_check true` to re-enable."
+Tell user: "Update checks disabled. Run `$INSTALL_DIR/bin/gstack-config set update_check true` to re-enable."
 Continue with the current skill.
 
 ### Step 2: Detect install type
 
 ```bash
-if [ -d "$HOME/.claude/skills/gstack/.git" ]; then
-  INSTALL_TYPE="global-git"
-  INSTALL_DIR="$HOME/.claude/skills/gstack"
-elif [ -d ".claude/skills/gstack/.git" ]; then
-  INSTALL_TYPE="local-git"
-  INSTALL_DIR=".claude/skills/gstack"
-elif [ -d ".claude/skills/gstack" ]; then
+_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+INSTALL_TYPE=""
+INSTALL_DIR=""
+for _candidate in \
+  "$HOME/.codex/skills/gstack" \
+  "$HOME/.agents/skills/gstack" \
+  "$HOME/.claude/skills/gstack" \
+  "$_ROOT/.codex/skills/gstack" \
+  "$_ROOT/.agents/skills/gstack" \
+  "$_ROOT/.claude/skills/gstack"; do
+  [ -d "$_candidate" ] || continue
+  if [ -d "$_candidate/.git" ]; then
+    INSTALL_TYPE="git"
+    INSTALL_DIR="$_candidate"
+    break
+  fi
   INSTALL_TYPE="vendored"
-  INSTALL_DIR=".claude/skills/gstack"
-elif [ -d "$HOME/.claude/skills/gstack" ]; then
-  INSTALL_TYPE="vendored-global"
-  INSTALL_DIR="$HOME/.claude/skills/gstack"
-else
-  echo "ERROR: gstack not found"
-  exit 1
-fi
+  INSTALL_DIR="$_candidate"
+  break
+done
+[ -n "$INSTALL_DIR" ] || { echo "ERROR: gstack not found"; exit 1; }
 echo "Install type: $INSTALL_TYPE at $INSTALL_DIR"
 ```
 
@@ -100,7 +110,7 @@ OLD_VERSION=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo "unknown")
 
 ### Step 4: Upgrade
 
-**For git installs** (global-git, local-git):
+**For git installs**:
 ```bash
 cd "$INSTALL_DIR"
 STASH_OUTPUT=$(git stash 2>&1)
@@ -110,7 +120,7 @@ git reset --hard origin/main
 ```
 If `$STASH_OUTPUT` contains "Saved working directory", warn the user: "Note: local changes were stashed. Run `git stash pop` in the skill directory to restore them."
 
-**For vendored installs** (vendored, vendored-global):
+**For vendored installs**:
 ```bash
 PARENT=$(dirname "$INSTALL_DIR")
 TMP_DIR=$(mktemp -d)
@@ -128,17 +138,22 @@ After upgrading the primary install, check if there's also a local copy in the c
 ```bash
 _ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 LOCAL_GSTACK=""
-if [ -n "$_ROOT" ] && [ -d "$_ROOT/.claude/skills/gstack" ]; then
-  _RESOLVED_LOCAL=$(cd "$_ROOT/.claude/skills/gstack" && pwd -P)
-  _RESOLVED_PRIMARY=$(cd "$INSTALL_DIR" && pwd -P)
+_RESOLVED_PRIMARY=$(cd "$INSTALL_DIR" && pwd -P)
+for _candidate in \
+  "$_ROOT/.codex/skills/gstack" \
+  "$_ROOT/.agents/skills/gstack" \
+  "$_ROOT/.claude/skills/gstack"; do
+  [ -d "$_candidate" ] || continue
+  _RESOLVED_LOCAL=$(cd "$_candidate" && pwd -P)
   if [ "$_RESOLVED_LOCAL" != "$_RESOLVED_PRIMARY" ]; then
-    LOCAL_GSTACK="$_ROOT/.claude/skills/gstack"
+    LOCAL_GSTACK="$_candidate"
+    break
   fi
-fi
+done
 echo "LOCAL_GSTACK=$LOCAL_GSTACK"
 ```
 
-If `LOCAL_GSTACK` is non-empty, update it by copying from the freshly-upgraded primary install (same approach as README vendored install):
+If `LOCAL_GSTACK` is non-empty, update it by copying from the freshly-upgraded primary install:
 ```bash
 mv "$LOCAL_GSTACK" "$LOCAL_GSTACK.bak"
 cp -Rf "$INSTALL_DIR" "$LOCAL_GSTACK"
@@ -146,7 +161,7 @@ rm -rf "$LOCAL_GSTACK/.git"
 cd "$LOCAL_GSTACK" && ./setup
 rm -rf "$LOCAL_GSTACK.bak"
 ```
-Tell user: "Also updated vendored copy at `$LOCAL_GSTACK` — commit `.claude/skills/gstack/` when you're ready."
+Tell user: "Also updated vendored copy at `$LOCAL_GSTACK` — commit that host-local `gstack/` directory when you're ready."
 
 ### Step 5: Write marker + clear cache
 
